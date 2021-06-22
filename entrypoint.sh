@@ -55,7 +55,7 @@ elif [[ ${harvester} == 'true' ]]; then
     echo "Starting harvester"
     flax start harvester
   fi
-els
+else
   flax start farmer
 fi
 
