@@ -11,8 +11,9 @@ echo "farmer_address: ${farmer_address}"
 echo "farmer_port: ${farmer_port}"
 echo "testnet: ${testnet}"
 
-echo "Running flax init"
-flax init
+#echo "Running flax init"
+#flax init
+echo "Current date: $now"
 
 if [[ ! -z ${key_path} ]]; then
   echo "Importing keys from ${key_path}"
