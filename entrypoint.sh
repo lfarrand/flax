@@ -13,7 +13,7 @@ echo "testnet: ${testnet}"
 
 #echo "Running flax init"
 #flax init
-echo "Current date: $now"
+echo "Current date: $(date)"
 
 if [[ ! -z ${key_path} ]]; then
   echo "Importing keys from ${key_path}"
