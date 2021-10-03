@@ -1,3 +1,8 @@
+cd /farmr
+truncate -s 0 farmr-harvester.log
+truncate -s 0 log.txt
+./farmr harvester headless > farmr-harvester.log 2>&1 &
+
 cd /flax-blockchain
 
 . ./activate
@@ -11,9 +16,8 @@ echo "farmer_address: ${farmer_address}"
 echo "farmer_port: ${farmer_port}"
 echo "testnet: ${testnet}"
 
-#echo "Running flax init"
-#flax init
-echo "Current date: $(date)"
+echo "Running flax init"
+flax init
 
 if [[ ! -z ${key_path} ]]; then
   echo "Importing keys from ${key_path}"
