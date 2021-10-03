@@ -1,6 +1,6 @@
 FROM ubuntu:latest
 
-EXPOSE 6755
+EXPOSE 6885
 EXPOSE 6888
 
 ENV key_path="null"
