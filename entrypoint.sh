@@ -16,6 +16,8 @@ echo "farmer_address: ${farmer_address}"
 echo "farmer_port: ${farmer_port}"
 echo "testnet: ${testnet}"
 
+echo "/flax-blockchain/venv/bin/flax" > /farmr/override-xfx-binary.txt
+
 echo "Running flax init"
 flax init
 
