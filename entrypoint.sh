@@ -1,7 +1,11 @@
+if [[ -n "${TZ}" ]]; then
+  echo "Setting timezone to ${TZ}"
+  ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
+fi
+
 cd /farmr
 truncate -s 0 farmr-harvester.log
 truncate -s 0 log.txt
-./farmr harvester headless > farmr-harvester.log 2>&1 &
 
 cd /flax-blockchain
 
@@ -20,6 +24,9 @@ echo "/flax-blockchain/venv/bin/flax" > /farmr/override-xfx-binary.txt
 
 echo "Running flax init"
 flax init
+
+# Enable INFO log level by default
+flax configure -log-level INFO
 
 if [[ ! -z ${key_path} ]]; then
   echo "Importing keys from ${key_path}"
@@ -42,12 +49,12 @@ fi
 echo "Adding plot directories ${plot_dirs}"
 IFS=';' read -ra ADDR <<< "${plot_dirs}"
 for plot_dir in "${ADDR[@]}"; do
+  mkdir -p ${plot_dir}
   echo "Adding plot directory $plot_dir"
-  flax plots add -d $plot_dir
+  flax plots add -d ${plot_dir}
 done
 
 sed -i 's/localhost/127.0.0.1/g' ~/.flax/mainnet/config/config.yaml
-sed -i 's/log_level: WARNING/log_level: INFO/g' ~/.flax/mainnet/config/config.yaml
 
 if [[ ${farmer} == 'true' ]]; then
   echo "Starting farmer only"
@@ -73,5 +80,7 @@ if [[ ${testnet} == "true" ]]; then
     flax configure --set-fullnode-port ${var.full_node_port}
   fi
 fi
+
+./farmr harvester headless > farmr-harvester.log 2>&1 &
 
 while true; do sleep 30; done;

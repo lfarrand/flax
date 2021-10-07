@@ -1,0 +1,25 @@
+version: "3.6"
+services:
+  flax:
+    container_name: flax
+    restart: unless-stopped
+    image: leefarrand/flax:latest
+    ports:
+      - '6888:6888'
+    environment:
+      - 'harvester=true'
+      - 'farmer_address=flax-full-node.lan'
+      - 'farmer_port=6885'
+      - 'ca=/keys'
+      - 'keys=copy'
+      - 'plots_dir=/plots'
+      - 'log_level=INFO'
+      - 'TZ=Europe/London'
+    volumes:
+      - './mainnet:/root/.flax/mainnet'
+      - './farmr/farmr-harvester.log:/farmr/farmr-harvester.log'
+      - './farmr/log.txt:/farmr/log.txt'
+      - './farmr/id.json:/farmr/id.json'
+      - './farmr/cache:/farmr/cache'
+      - './plots:/plots'
+      - './flax-full-node-keys:/keys'
