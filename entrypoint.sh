@@ -1,86 +1,89 @@
+#!/usr/bin/env bash
+
+# shellcheck disable=SC2154
 if [[ -n "${TZ}" ]]; then
   echo "Setting timezone to ${TZ}"
-  ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
+  ln -snf "/usr/share/zoneinfo/$TZ" /etc/localtime && echo "$TZ" > /etc/timezone
 fi
 
-cd /farmr
-truncate -s 0 farmr-harvester.log
-truncate -s 0 log.txt
-
-cd /flax-blockchain
-
-. ./activate
-
-echo "key_path: ${key_path}"
 echo "keys: ${keys}"
-echo "plot_dirs: ${plot_dirs}"
+echo "ca: ${ca}"
+echo "plots_dir: ${plots_dir}"
 echo "farmer: ${farmer}"
 echo "harvester: ${harvester}"
 echo "farmer_address: ${farmer_address}"
 echo "farmer_port: ${farmer_port}"
 echo "testnet: ${testnet}"
+echo "log_level: ${log_level}"
 
 echo "/flax-blockchain/venv/bin/flax" > /farmr/override-xfx-binary.txt
 
-echo "Running flax init"
-flax init
+cd /flax-blockchain
 
-# Enable INFO log level by default
-flax configure -log-level INFO
+# shellcheck disable=SC1091
+. ./activate
 
-if [[ ! -z ${key_path} ]]; then
-  echo "Importing keys from ${key_path}"
-  flax init -c ${key_path}
-else
-  if [[ ${keys} == "generate" ]]; then
-    echo "Generating keys"
-    echo "To use your own keys pass them as a text file -v /path/to/keyfile:/path/in/container and -e keys=\"/path/in/container\""
-    flax keys generate
-  else
-    echo "Adding keys"
-    flax keys add -f ${keys}
-  fi
+flax init --fix-ssl-permissions
+
+if [[ ${testnet} == 'true' ]]; then
+   echo "configure testnet"
+   flax configure --testnet true
 fi
 
-if [[ ! "$(ls -A /plots)" ]]; then
-  echo "Plots directory appears to be empty and you have not specified another, try mounting a plot directory with the docker -v command "
-fi
-
-echo "Adding plot directories ${plot_dirs}"
-IFS=';' read -ra ADDR <<< "${plot_dirs}"
-for plot_dir in "${ADDR[@]}"; do
-  mkdir -p ${plot_dir}
-  echo "Adding plot directory $plot_dir"
-  flax plots add -d ${plot_dir}
-done
-
-sed -i 's/localhost/127.0.0.1/g' ~/.flax/mainnet/config/config.yaml
-
-if [[ ${farmer} == 'true' ]]; then
-  echo "Starting farmer only"
-  flax start farmer-only
-elif [[ ${harvester} == 'true' ]]; then
-  if [[ -z ${farmer_address} || -z ${farmer_port} ]]; then
-    echo "A farmer peer address and port are required."
+if [[ ${keys} == "persistent" ]]; then
+  echo "Not touching key directories"
+elif [[ ${keys} == "generate" ]]; then
+  echo "To use your own keys pass them as a text file -v /path/to/keyfile:/path/in/container and -e keys=\"/path/in/container\""
+  flax keys generate
+elif [[ ${keys} == "copy" ]]; then
+  if [[ -z ${ca} ]]; then
+    echo "A path to a copy of the farmer peer's ssl/ca required."
     exit
   else
-    echo "Setting farmer peer to ${farmer_address}:${farmer_port}"
-    flax configure --set-farmer-peer ${farmer_address}:${farmer_port}
-    echo "Starting harvester"
+    echo "Found existing farmer ssl keys in "${ca}", using them to initialize"
+    flax init -c "${ca}"
+  fi
+else
+  echo "Adding keys from ${keys}"
+  flax keys add -f "${keys}"
+fi
+
+for p in ${plots_dir//:/ }; do
+    mkdir -p "${p}"
+    if [[ ! $(ls -A "$p") ]]; then
+        echo "Plots directory '${p}' appears to be empty, try mounting a plot directory with the docker -v command"
+    fi
+    flax plots add -d "${p}"
+done
+
+if [[ -n "${log_level}" ]]; then
+  flax configure --log-level "${log_level}"
+fi
+
+sed -i 's/localhost/127.0.0.1/g' "$FLAX_ROOT/config/config.yaml"
+
+if [[ ${farmer} == 'true' ]]; then
+  flax start farmer-only
+elif [[ ${harvester} == 'true' ]]; then
+  if [[ -z ${farmer_address} || -z ${farmer_port} || -z ${ca} ]]; then
+    echo "A farmer peer address, port, and ca path are required."
+    exit
+  else
+    flax configure --set-farmer-peer "${farmer_address}:${farmer_port}"
     flax start harvester
   fi
 else
   flax start farmer
 fi
 
-if [[ ${testnet} == "true" ]]; then
-  if [[ -z $full_node_port || $full_node_port == "null" ]]; then
-    flax configure --set-fullnode-port 58444
-  else
-    flax configure --set-fullnode-port ${var.full_node_port}
-  fi
-fi
-
+cd /farmr
+truncate -s 0 farmr-harvester.log
+truncate -s 0 log.txt
 ./farmr harvester headless > farmr-harvester.log 2>&1 &
 
-while true; do sleep 30; done;
+trap "flax stop all -d; exit 0" SIGINT SIGTERM
+
+# Ensures the log file actually exists, so we can tail successfully
+touch "$FLAX_ROOT/log/debug.log"
+tail -f "$FLAX_ROOT/log/debug.log" &
+while true; do sleep 1; done
